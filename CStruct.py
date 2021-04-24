@@ -2,96 +2,96 @@
 # coding: utf-8
 
 # ### Emulación y Fachada de Estructuras C
-# 
+#
 # #### 1.- Introducción
-# 
-# 
+#
+#
 # En general las variables compuestas en C son definidas como estructuras que resultan siendo arreglos ordenados de variables primitivas (char, int, long, etc.) en la memoria del microcontrolador. La funcionalidad del módulo provee dos modos de operación : <b><i>emulación</i></b> y <b><i>fachada</i></b>, en ambos caso se replica el <b><i>almacenamiento</i></b>, la sintaxis básica de acceso a sus sub-elementos y las operaciones aritméticas de las variables primitivas.
-# 
-# Sin embargo la funcionalidad de <b><i>fachada</i></b> implica además establecer una conexión con su 'alter ego' en un dispositivo (microcontrolador) remoto de manera que sus valores se mantengan sincronizados, i.e. su asignación en Python implica la de su actualización en la memoria del microcontrolador y viceverza cuando el se requiera el valor de su fachada. 
-# 
+#
+# Sin embargo la funcionalidad de <b><i>fachada</i></b> implica además establecer una conexión con su <i>'alter ego'</i> en un dispositivo remoto (microcontrolador) de manera que sus valores se mantengan sincronizados, i.e. su asignación en Python implica la de su actualización en la memoria del microcontrolador y viceverza cuando el se requiera el valor de su fachada.
+#
 # La emulación y fachada se realiza tanto en el <i>tipo</i> de datos como en el <i>almacenamiento</i>, ejem:
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
 #      typedef struct {                    class ab_t(typedef):
 #         uint8_t  a    ;                     a = uint8_t
 #         uint16_t b    ;                     b = uint16_t
-#         uint24_t c[5] ;                     c = ArrayOf(uint24_t, 5)    
+#         uint24_t c[5] ;                     c = ArrayOf(uint24_t, 5)
 #         uint8_t *d    ;                     d = PointerTo(uint8_t, RAM_Memory)
 #      } ab_t ;
 # </samp>
-# 
+#
 # circunstancialmente un tipo C es también un tipo Python<sup>*1</sup> y asi mismo a la instancia de una variable en C le corresponde la de la clase correspondiente en Python, ejem :
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
-#       ab_t ab ;                           ab = ab_t() 
+#       ab_t ab ;                           ab = ab_t()
 # </samp>
-#     
+#
 # El acceso a los elementos de las estructuras se realiza básicamente con la misma sintaxís en ambos, ejem.:
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
-#       ab.a = 8 ;                          ab.a = 8  
+#       ab.a = 8 ;                          ab.a = 8
 #       ab.b = ab.a ;                       ab.b = ab.a
 #       c[2] = 199                          c[2] = 199
 # </samp>
-# 
+#
 # Los vectores y punteros poseen constructores especializados (<i>ArrayOf</i> y <i>PointerTo</i>) en el caso de Python, mientras en el caso de vectores el acceso tiene la misma síntaxis en C y Python, para el caso de vectores no existe el operador especializado (<i>-></i>) en Python, y se utiliza el mismo operador '.', por ejemplo :
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
-#       ab->d = 65 ;                        ab.d = 65  
+#       ab->d = 65 ;                        ab.d = 65
 # </samp>
-#     
-# implicando que en Python no existe acceso directo al valor del puntero, por otro lado al definir un puntero <i>PointerTo(target, mem_class)</i>, no solo se asigna al tipo de estructura que apunta <i>target</i> sino el tipo de memoria <i>mem_classmem_class</i> en la que reside (<i>FLASH_Memory</i>, <i>RAM_Memory</i>, <i>EEPROM_Memory</i>)
-#     
+#
+# implicando que en Python no existe acceso directo al valor del puntero, por otro lado al definir un puntero <i>PointerTo(target, mem_class)</i>, no solo se asigna al tipo de estructura que apunta <i>target</i> sino el tipo de memoria <i>mem_class</i> en la que reside (<i>FLASH_Memory</i>, <i>(banked) RAM_Memory</i>, <i>Linear_RAM_Memory</i>, <i>EEPROM_Memory</i>)
+#
 # El enlace con el dispositivo remoto presume la exitencia de un medio de comunicación con el dispositivo remoto operando con un protocolo dado (<i>Facade Protocol</i>), la clase <i>FacadeWrapper</i> implementa el protocolo en un puerto serie dado. Por ejemplo : <br>
 # <p style="margin-left:1em;">
 # <samp>  facade_port = FacadeWrapper(serial.Serial('COM4', 115200)) </samp>
-# 
+#
 # La fachada de variables se realiza definiendo la memoria de enlace con el dispositivo  durante la creación de la instancia, por ejemplo :
-# 
+#
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
-#                                           facade_port = FacadeWrapper(serial.Serial('COM4', 115200)) 
-#       ab_t ab @ 1000 ;                    ab = ab_t(memory=RAM_Memory(1000, facade_port)) 
+#                                           facade_port = FacadeWrapper(serial.Serial('COM4', 115200))
+#       ab_t ab @ 1000 ;                    ab = ab_t(memory=RAM_Memory(1000, facade_port))
 # </samp>
-#     
+#
 # la memoria asociada es una instancia de las clases <i>FLASH_Memory</i>, <i>RAM_Memory</i> o <i>EEPROM_Memory</i>, las que perse definen el tipo de la memoria ha asociar, sino invocanco con su direccíon y puerto de fachada a utiizar.
 # <br>
 # <br>
 # <font size="2" color="blue">
 # Nota *1 : Es decir <i>type(...) = type</i>.
-#     
-#     
+#
+#
 # <br><br>
 # <font size="2" color="red">
-# 
+#
 # #### TO DO
 # La implementación actual no provee la capacidad de definir la dirección de la variable apuntada por el puntero, la excepción es en el caso de utilizarse como fachada en que la dirección es actualizada en cada operación.
-#     
+#
 
 # ####  2.- Tipos de Datos Primitivos
-# 
-# Las clases (tipos) derivadas de <i>Primitive_t</i>, estan orientadas a representar tipos básicos, i.e. que representan un único valor, no estan pensadas para instanciarse directamente<sup>*1</sup> sino solo como atributos (de clase) para representar los elementos respectivos de las estructuras C.  
+#
+# Las clases (tipos) derivadas de <i>Primitive_t</i>, estan orientadas a representar tipos básicos, i.e. que representan un único valor, no estan pensadas para instanciarse directamente<sup>*1</sup> sino solo como atributos (de clase) para representar los elementos respectivos de las estructuras C.
 # <br>
 # <br>
-# 
+#
 # <font size="2" color="blue">
 # Nota *1 : Es una limitación impuesta por la forma de operación del interprete de Python, que en general durante la asignación <i> name = value </i>, name se cambia al tipo de <i>value</i>. Haciendo imposible (TO DO) mantener el tipo con la sintaxís estándar, y menos pensar que se dispare la actualización de su fachada.
-# 
-# 
+#
+#
 
 # #### 2.1.- Tipos de Datos Estándar
-# 
-# Son tipos derivados <i>Primitive_t</i> se definen para emular los tipos estándar definidos en <i>stdint.h</i>, <i>stdbool.h</i>, <i>stdfract.h</i>. 
-# Los nombres de los tipos son homónimos de sus correspondientes tipos en C (i.e. <i>uint8_t</i>, <i>int8_t</i>, etc.). 
-# 
-# La emulación también incluye su aritmética básica : suma , resta, conversión entre tipos. 
-# 
+#
+# Son tipos derivados <i>Primitive_t</i> se definen para emular los tipos estándar definidos en <i>stdint.h</i>, <i>stdbool.h</i>, <i>stdfract.h</i>.
+# Los nombres de los tipos son homónimos de sus correspondientes tipos en C (i.e. <i>uint8_t</i>, <i>int8_t</i>, etc.).
+#
+# La emulación también incluye su aritmética básica : suma , resta, conversión entre tipos.
+#
 
 # #### 2.2.- Punteros
-# 
+#
 # El tipo (i.e. clase) de un puntero a una variable del tipo <b><i>target_t</i></b> se obtiene invocando el método <b><i>PointerTo(target_t, [FLASH | RAM | EEPROM]_Memory)</i></b>. Por ejemplo :
-# 
+#
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
 #       typedef struct {                    class zen_t(typedef):
@@ -100,18 +100,18 @@
 #          uint16_t npool ;                     npool = uint16_t
 #       } zen_t ;
 # </samp>
-#     
+#
 # y las instancias de ambos tipos :
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
 #       zen_t zen                           zen = zen_t()
 # </samp>
-#     
-# Los punteros son tipos deribados de <i>Primitive_t</i> por lo tanto no pueden instanciarse sin un contenedor. 
-#     
+#
+# Los punteros son tipos deribados de <i>Primitive_t</i> por lo tanto no pueden instanciarse sin un contenedor.
+#
 
 # #### 2.3.- Cadena de caracteres
-# 
+#
 # En C existe el concepto de cadena de caracteres, como vectores del tipo <b><i>char</b></i> (<b><i>uint8_t</b></i>), con una sintaxis alterna para su asignación (diferente a la de los vectores), para emular funcionalidad se incluye la función (factoría) <b><i>CharArray_t(length)</b></i>, por ejemplo :
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
@@ -119,16 +119,16 @@
 #         char  a[10] ;                       a = CharArray_t(10)
 #         uint16_t b ;                        b = uint16_t
 #      } ab_t ;
-#     
+#
 #      ab = ab_t()                          ab = ab_t()
 #      ab.a = 'ABC'                         ab.a = 'ABC'
 # </samp>
-# 
-# Los punteros son tipos deribados de <i>Primitive_t</i> por lo tanto no pueden instanciarse sin un contenedor. 
+#
+# Las cadenas de caracteres son tipos deribados de <i>Primitive_t</i> por lo tanto no pueden instanciarse sin un contenedor.
 
 # #### 3.- Tipos de Datos Compuestros :
 # #### 3.1.- Estructuras
-# 
+#
 # Los tipos derivados, i.e. las subclases de, <b><i>typedef</i></b> son tipos que contienen (como atributos de clase) tipos de datos primitivos (subclases de <b><i>Primitive_t</i></b>) y/o también (otros) tipos de datos compuestos, es decir sus instancias emulan la conformación de estructuras en C. Por ejemplo :
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
@@ -136,156 +136,129 @@
 #         uint8_t  a ;                        a = uint8_t
 #         uint16_t b ;                        b = uint16_t
 #      } ab_t ;
-#     
+#
 #      typedef struct {                    class foo_t(typedef):
 #         ab_t     plus  ;                    plus  = ab_t
 #         uint16_t extra ;                    extra = uint16_t
 #      } foo_t ;
 # </samp>
-# 
+#
 # Nótese que obviamente el orden de definición es el mismo entre los elememtos en C y los atributos en Python. Así mismo a cada elemento le corresponde un atributo cuyo tipo es el equivalente en C.
-# 
+#
 # El ejemplo anterior también muestra como manejar formalmente el caso de estructuras anidadas, en este caso las sub-estructuras quedan definidas en forma explícita y no anónima. Sin embargo puede utilizarce la función <b>Struct_t(dict_fields)</b> y realizarce en foma anónima :
 # <p style="margin-left:1em;">
-# <samp>  En C :                              En Python :    
+# <samp>  En C :                              En Python :
 #      typedef struct {                    class foo_t(typedef):
 #         struct {                            plus = CStruct({'a':uint8_t, 'b':uint16_t})
 #           uint8_t  a ;                      extra = uint16_t
-#           uint16_t b ;                      
-#         } plus  ;                           
-#         uint16_t extra ;                    
+#           uint16_t b ;
+#         } plus  ;
+#         uint16_t extra ;
 #      } foo_t ;
 # </samp>
-# 
+#
 # En ambos casos, C y Python, <i>foo_t</i> es un tipo (type), y no la instancia de una variable o clase, la cual se define como es usual para cada lenguaje <sup><b>*1<i></i></b></sup>, ejem.:
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
 #      foo_t foo ;                             foot = foo_t()
 # </samp>
-#     
-#     
-# <font size="2" color="blue">    
-# Nota *1 : Extrictamente, la instancia foo_t() no es una instancia de la clase <i>foo_t</i>, sino de una clase denominada <i>FacadeOf&#60;foot_t></i>, que es la clase en la cual sus atributos son instancias de los atributos de <i>foo_t</i>.
+#
+#
+# <font size="2" color="blue">
+# Nota *1 : Extrictamente, la instancia <i>foo_t()</i> no es una instancia de la clase <i>foo_t</i>, sino de una clase denominada <i>FacadeOf&#60;foot_t></i>, que es la clase en la cual sus atributos son instancias de los atributos de <i>foo_t</i>.
 
 # #### 3.2.- Vectores
-# 
+#
 # El tipo (i.e. clase) de un vector de <i>length</i> elementos del tipo <i>pattern_t</i> se obtiene invocando el método <b><i>ArrayOf( pattern_t, length )</i></b>. Por ejemplo :
-# 
+#
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
 #       typedef uint8_t bar_t[10]           bar_t = ArrayOf(uint8_t, 10)
 # </samp>
-#     
+#
 # y las instancias de ambos tipos :
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
 #       bar_t bar                           bar = bar_t()
 # </samp>
-#     
+#
 # El acceso a los elementos de los vectores tiene la misma sintaxís en ambos lenguajes, ejem. <samp>bar[5]</samp>
 
 # #### <i>4.- Sincronización con un Dispositivo Remoto</i>
-# 
+#
 # El objetivo de este módulo no es solo emular la asignación de memoria y la sintaxis de manejo de estructuras C, sino principalmente la manipulación de variables almacenadas en dispositivos remotos (microcontroladores) cuyo programa fue escrito en C.
-# 
+#
 # La funcionalidad de la capacidad de lectura y escritura en el dispositivo remoto puede ser utilizada para confirgurar, verificar la operación, obtener registros de captura de datos, etc.
-# 
+#
 # A la funcionalidad de utilizar la misma sintaxis que la utilizada en C para efectuar estas operaciones en el dispositivo remoto se le denomina <i>Fachada</i>.
-# 
+#
 # #### <i>4.1- Protocolo de Fachada</i>
-# 
+#
 # La clase <i>FacadeWrapper</i> encapsula un puerto serie para utlizarlo como medio de comunicación con el dispositivo remoto ejecutando el protocolo establecido (Facade Protocol).
-# 
+#
 # El objetivo principal de la clase es proveer los métodos <i>getData</i> y <i>setData</i> para leer y escribir un número determinado de bytes desde una dirección dada, bajo el protocolo adhoc de fachada.
-# 
-# Aunque el <i>Protocolo de Fachada</i> tiene los métodos <i>open</i> y <i>close</i>, es preferible utilizarlo como un manejador de contexto de manera que se asegura su cierre automáticamente a un en caso de error, por ejemplo :
+#
+# Aunque el <i>Protocolo de Fachada</i> tiene los métodos <i>open</i> y <i>close</i>, es preferible utilizarlo como un manejador de contexto de manera que se asegura su cierre automáticamente a un en caso de error<sup><b>*1<i></i></b></sup>, por ejemplo :
 # <p style="margin-left:1em;">
 # <samp>
-# facade_port = FacadeWrapper(serial.Serial('COM4', 115200, open=false<sup><b>*1<i></i></b></sup>))
+# facade_port = FacadeWrapper(serial.Serial('COM4', 115200))
 # with facade_port as port :
 #     data = port.getData(0x1000, 5)
 # </samp>
-#     
+#
+# El <i>Protocolo de Fachada</i> asigna un espacio de memoria limitado a 65536 bytes (2 bytes para la dirección) y por otro lado el microcontrolador puede contener diferentes espacios de memoria (FLASH, RAM, EEPROM) independientes y en consecuencia con rangos de dirección superpuestos, por lo que se hace necesario segmentar el espacio de memoria del protocolo y reasignarlo a cada tipo de memoria, la clase <b><i>FacadeConfig</i></b> define esta asignación.
+#
+# La clase <b><i>FacadeConfig</i></b> define 4 atributos para los espacios de memoria asignables : <b><i>FLASH_SPACE</i></b>,  <b><i>LINEAR_SPACE</i></b>,  <b><i>RAM_SPACE</i></b>,  <b><i>EEPROM_SPACE</i></b>.
+#
+# Cada uno es del tipo <b><i>MemoryConfig</i></b> (en particular derivada de <i>namedtuple</i>) que almacena los parámetros de asignación del espacio en el protocolo, su atributo <b><i>offset</i></b> indica la dirección de inicio en el espacio del protocolo, sus atributos restantes <b><i>start</i></b> y <b><i>final</i></b>, asignan el rango de direcciones a asignar que se corresponden con las del microcontrolador.
+#
+#
+# <font size="2" color="blue">
+# Nota *1 : Desaforttunadament en caso de error los libretos de <i>Jupyter</i> no cierran el puerto, si esto causa la perdida de la variable que representa el puerto, el puerto queda abierto, sin poder reutilizarse nuevamente y se tiene que reiniciar la ejecución del libreto para retomar su control.
+#
+
 # #### <i>4.2- Vinculo con el Dispositivo Remoto</i>
-# 
-# Las instancias de la clase <b><i>FacadeMemory</i></b> implementan el vínculo de una variable con el dispositivo remoto, su objetivo principal es proveer las funciones de lectura y escritura adhoc para la memoria asociada en el dispositivo remoto. 
-# 
+#
+# Las clases derivadas de la clase <b><i>FacadeMemory</i></b> implementan el vínculo de una variable con el dispositivo remoto, su objetivo principal es proveer las funciones de lectura y escritura adhoc para la memoria asociada en el dispositivo remoto.
+#
 # Durante la creación de sus instancia se asocian la dirección de la variable a asociar y el puerto de fachada, es decir su constructor se invoca con los parámetros siguientes :
 # <p style="margin-left:2em;">
 # <i>port</i> : define el puerto de fachada de comunicaciones. <br>
 # <i>address</i> : direccion base (de referencia) de la ubicación de la variable en la memoria del dispositivo remoto.<br>
-#     
+#
 # y opcionalmente :
 # <p style="margin-left:2em;">
-# <i>volatil</i> : volatilidad, i.e. si el contenido puede variar independientemente en el dispositivo remoto, esto implica que cuando es volatíl (<i>volatil = True</i>), cada lectura implica obtener su valor desde el dispositivo remoto, en caso contrario (<i>volatil = False</i>) el valor es obtenido del valor interno (cache) espejo del valor remoto. <br>  
-# 
-# Como una facilidad para asociar los sub-elementos de una variable con su respectivo vínculo, la instancia del contenedor puede invocarse (<i>\_\_call\_\_</i>) cuyo parámetro es la ubicación relativa (offset) del sub-elemento.
-# 
-# #### <i>4.3- Asociacion de las variables con su vínculo (con el dispositivo remoto)</i>
-# 
+# <i>volatil</i> : volatilidad, i.e. si el contenido puede variar independientemente en el dispositivo remoto, esto implica que cuando es volatíl (<i>volatil = True</i>), cada lectura implica obtener su valor desde el dispositivo remoto, en caso contrario (<i>volatil = False</i>) el valor es obtenido del valor interno (cache) espejo del valor remoto. <br>
+#
+# ##### Tipos de Memoria
+# Los tipos básicos de memoria en el microcontrolador son  FLASH y RAM. Opcionalmente EEPROM la cual inclusive puede ser emulada en el microcontrolador reservando un espacio de la memoria FLASH. Por otro lado aunque la RAM es única, existen dos modos de direccionamiento, el modo estándar por medio de bancos o en forma lineal, por lo que se distinguen hasta cuatro tipos de memoria a los cuales se asignan las subclases de <i>FacadeMemory</i> :<br>
+# <p style="margin-left: 40px"><b><i>FLASH_Memory</i></b>, <b><i>EEPROM_Memory</i></b>, <b><i>RAM_Memory</i></b> y <b><i>Linear_RAM_Memory</i></b> </p>
+#
+#  que se asignan a las memorias FLASH, EEPROM, RAM asignada por bancos y RAM direccionada en forma lineal. Por defecto se inicializan con la configuración definida en <i>FacadeConfig</i> respectiva.
+#
+#
+# <del>Como una facilidad para asociar los sub-elementos de una variable con su respectivo vínculo, la instancia del contenedor puede invocarse (<i>\_\_call\_\_</i>) cuyo parámetro es la ubicación relativa (offset) del sub-elemento.</del>
+#
+# ##### Asociacion de las variables con su vínculo (con el dispositivo remoto)</i>
+#
 # Durante la creación de las instancias de las variables se asocian al vínculo importandolo como el parámetro nominado  <i>link</i>, ejem :
-# 
+#
 # <p style="margin-left:1em;">
 # <samp>  En C :                              En Python :
-#                                           facade_port = FacadeWrapper(serial.Serial('COM4', 115200)) 
-#       ab_t ab @ 1000 ;                    ab = ab_t(link=Bind(facade_port, 1000)) 
+#                                           facade_port = FacadeWrapper(serial.Serial('COM4', 57600))
+#       ab_t ab @ 1000 ;                    ab = ab_t(memory = RAM_Memory(facade_port, 1000))
 # </samp>
-#         
+#
 # Durante la creación de la instancia se crean vicnculos para sus sub-elementos en forma automática, de esta manera se puede realizar operaciones de lectura y escritura parciales de sus sub-elementos.
-# 
-# <font size="2" color="blue">    
-# Nota *1 :Por defecto Serial abre el puerto cuando se crea su instancia, la opción <i>open=false</i> evita abrir el puerto, de manera que su instancia puede crearse aún cuando el puerto no este disponible. 
-# 
-# 
+#
 
-# #### Memoria de Contención y Fachada del Almacenamiento Remoto
-# 
-# La clase <i>Cache</i> encapsula el valor canónico (i.e. la secuencia de bytes que representa el valor) de las variables primitivas o compuestas y sirve como memoria de conteción (espejo) y fachada de sus valor alamcenda en un dispositivo remoto.  
-# 
-# Existen dos formas de invocar su constructor, el primer parámetro es siempre el enlace (<i>class Link</i>) asociado con la variable que provee los parámetros de comunicación con el dispositivo remoto, y el segundo parámetro siempre es nominado, para el cual hay dos opciones :
-# <p style="margin-left:2em;">
-# <i>length</i>  : para el caso de asociarse a variables primitivas, en cuyo caso es el número de bytes de su representación canónica.<br>
-# <i>cache_list</i> : para el caso de asociarse a variables compuestas, es una lista de las instancias de <i>Cache</i> asociadas a sus sub-variables.<br>
-# 
-# Sus atributos son :
-# <p style="margin-left:2em;">
-# <i>link</i> : define su asociación (puerto, dirección, longitud y volatilidad) con el dispositivo remoto.<br>    
-# <i>length</i> : es la longitud de su valor canónico o la suma de las longitudes de sus elementos.<br>  
-#     
-# Opcionalmente segun la variable asociada sea primitiva o compuesta se definen (en forma excluyente) :
-# <p style="margin-left:2em;">
-# <i>__cache__</i> : el valor canónico de la variable primitiva, al que se tiene acceso por medio de la propiedad de solo lectura <i>cache</i>.<br>    
-# <i>cache_list</i> : la unión de los valores canónicos de las sub-variables de la asociada compuesta.
-#     
-# Finalmente el valor canónico local y el almacenado en el dispositivo remoto se leen y escriben por medio de los métodos <i>read</i> y <i>write</i> respectivamente.
-# 
-# Es una clase de soporte, no esta destinada para ser usada por el código usuario directamente, intermedia y optimiza la lectura y escritura de los valores canónicos de la variable/variables asociadas. Para el caso de variables no volátiles, permiten evitar el uso del interfaz de comunicación, evitando lecturas redundantes, al usarse como espejo y/o memoria de contención de los valores en el dispositivo remoto. Por otro lado en el caso de variables compuestas (aka. estructuras, vectores) intermedian para utilizar el interfaz en una operación general de lectura/escritura, mientras se sincronizan los espejos de cada sub-elemento, evitando su uso del interfaz para cada elemento de la variable compuesta.
-# 
-
-# #### Configuración de la Fachada 
-# 
-# Como el <i>Protocolo de Fachada</i> asigna un espacio de memoria limitado a 65536 bytes (2 bytes para la dirección) y por otro lado el microcontrolador puede contener diferentes espacios de memoria (FLASH, RAM, EEPROM) independientes y en consecuencia con rangos de dirección superpuestos, se hace necesario segmentar el espacio de memoria del protocolo y reasignarlo a cada tipo de memoria.
-# 
-# <b><i>MemoryConfig</i></b> es una (clase, namedtuple en particular) que almacena los parámetros de asignación, su atributo <b><i>offset</i></b> indica la dirección de protocolo asignada al rango del tipo de memoria a asignar, sus atributos restantes <b><i>start</i></b> y <b><i>final</i></b>, asignan el rango de direcciones a asignar. 
-# 
-# 
-# #### Emulación de la EEPROM
-# 
-# Para microcontroladores que no poseen EEPROM, esta suele emularse en un rango dado de la memoria FLASH, cuyo inicio se define en EMULATED_EEPROM_ADDRESS (el rango es definido por su correspondiente atributo <i>MemoryConfig</i>). 
-# 
-# 
-# #### Clase FacadeConfig
-# 
-# Es en la clase <b><i>FacadeConfig</i></b> en la que se definen estos parámetros, por defecto se ha definido la asignación de memmoria estándar del protocolo, y la dirección de emulación de memoria EEPROM estándar utilizada en el PIC16F1619.
-# 
-# 
-# #### Compilador
-# 
-# El compilador (<i>C_compiler</i>) define como operan los punteros, es decir como se asigna su valor a la memoria a la memoria FLASH, RAM o EEPROM, es básicamente una desición de diseño del compilador, dependiente del tipo/modelo de microcontrolador y/o modos de operacón dados. La conversión entre el valor númerico del puntero y la dirección a la que se asigna según su tipo es definida por la función <i>to_adr(val, memory_class)</i> de la clase correspondiente. 
-# 
-# 
-# Ambos <b><i>FacadeConfig</i></b> y <b><i>C_compiler</i></b> deben definirse (modificarse en realidad) antes de crear instancias de fachadas. Por defecto estan definidas para operar con el protocolo estándar y EEPROM emulada (a partir de 0x1F00) la primera y para la conversión de punteros para el compilador XC8.
-# 
+# ##### Compilador
+#
+# El compilador representado por la <b><i>C_compiler</i></b>, define como operan los punteros, es decir como se asigna su valor a la memoria a la memoria FLASH, RAM o EEPROM, es básicamente una desición de diseño del compilador, dependiente del tipo/modelo de microcontrolador y/o modos de operacón dados. La conversión entre el valor númerico del puntero y la dirección a la que se asigna según su tipo es definida por la función <i>to_adr(val, memory_class)</i> de la clase correspondiente.
+#
+#
+# Ambos <b><i>FacadeConfig</i></b> y <b><i>C_compiler</i></b> deben definirse (modificarse en realidad) antes de crear las instancias de las fachadas. Por defecto estan definidas para operar con el protocolo estándarcon la reserva de espacios estándar y EEPROM emulada (a partir de 0x1F00)así como para la conversión de punteros para el compilador XC8.
+#
 
 # In[1]:
 
