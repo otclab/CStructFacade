@@ -339,24 +339,24 @@ class FacadeMemory:
         self.__updated__ = False
         self.__offset__ = 0
         self.__compiler__ = C_compiler
-        
-            
+
+
     def __add__(self, other) :
         mem = self.__class__(self , self.__port__, volatil = self.__volatil__)
         mem.__offset__ = int(other)
         return mem
-    
+
     @property
     def __address__(self) :
         if isinstance(self.__adr__, FacadeMemory) :
             return self.__adr__.__address__ + self.__offset__
-        
+
         return self.__adr__ + self.__offset__
-        
+
     def __retrieve__(self, length):
         if not self.__updated__ :
-            return self.__port__.getData(self.__address__ + self.PROTOCOL_OFFSET.offset, length)            
-        
+            return self.__port__.getData(self.__address__ + self.PROTOCOL_OFFSET.offset, length)
+
     def __store__(self, data):
         if not self.__port__.setData(self.__address__ + self.PROTOCOL_OFFSET.offset, data) :
             raise FacadeWrapperError("El dispositivo no acepto el cambio.")
@@ -366,7 +366,7 @@ class FacadeMemory:
 class PointerMemory(FacadeMemory) :
     def __init__(self, base_address, port, volatil=True) :
         super().__init__(base_address, port, volatil=True)
-        
+
     @property
     def __address__(self) :
         b_adr = self.__read__()
@@ -378,19 +378,22 @@ class FLASH_Memory(FacadeMemory):
 
 class RAM_Memory(FacadeMemory):
     PROTOCOL_OFFSET = FacadeConfig.RAM_SPACE
-        
+
+class Linear_RAM_Memory(FacadeMemory):
+    PROTOCOL_OFFSET = FacadeConfig.LINEAR_RAM_SPACE
+
 class EEPROM_Memory(FacadeMemory):
     PROTOCOL_OFFSET = FacadeConfig.EEPROM_SPACE
-    
-    
+
+
 class Unallocated_Memory(FacadeMemory):
     def __init__(self):
         pass
-    
+
     def __call__(self, *args, **kwargs):
         return Unallocated_Memory()
-    
-no_memory = Unallocated_Memory()    
+
+no_memory = Unallocated_Memory()
 
 
 # In[4]:
@@ -403,28 +406,28 @@ class CType_Meta(type):
     @classmethod
     def __prepare__(cls, name, bases):
         return OrderedDict()
-        
-       
+
+
 class CType_t(metaclass=CType_Meta):
-    """ Ctype_t es la clase abstracta para los elementos simples o compuestos, 
+    """ Ctype_t es la clase abstracta para los elementos simples o compuestos,
         tecnicamente es un descriptor de manera que el acceso a los elementos
         se realiza utilizando la notación 'dot' (punto).
-        
-        Provee los métodos de lectura (__read__) / escritura (__write__) con 
-        las que se actualiza la memoria de contención de su valor binario 
-        (__cahe__) con la del almacenamiento remoto, a la vez que se realiza 
-        la conversión enntre el valor natural y su representación binaría.  
-        
+
+        Provee los métodos de lectura (__read__) / escritura (__write__) con
+        las que se actualiza la memoria de contención de su valor binario
+        (__cahe__) con la del almacenamiento remoto, a la vez que se realiza
+        la conversión enntre el valor natural y su representación binaría.
+
         Las subclases deben implementar los siguientes métodos :
-        
-            to_canonical y to_custom, que proveen la convesión entre el valor 
-            representado - binario y viceverza respectivamente. 
-        
-            __len__ que devuelve el número de bytes utilizados para su 
+
+            to_canonical y to_custom, que proveen la convesión entre el valor
+            representado - binario y viceverza respectivamente.
+
+            __len__ que devuelve el número de bytes utilizados para su
             almacenamiento (de la memoria de contención y remota().
-            
-        Su contructor toma un solo argumento nominal (memory) instancia de la 
-        clase FacadeMemory, la que sirve de enlace con el almacenamiento en 
+
+        Su contructor toma un solo argumento nominal (memory) instancia de la
+        clase FacadeMemory, la que sirve de enlace con el almacenamiento en
         el dispositivo remoto.
     """
     def __new__(cls, **kwargs):
@@ -456,21 +459,21 @@ class CType_t(metaclass=CType_Meta):
             value = value.__read__()
 
         field_cnt = 1 if isinstance(self, (Primitive_t,)) else len(self.__fields__)
-        value_cnt = len(value) if isinstance(value, (list, tuple)) else 1 
+        value_cnt = len(value) if isinstance(value, (list, tuple)) else 1
         if field_cnt != value_cnt :
             raise ValueError('El número de elementos es diferente.')
-            
+
         canonical = self.to_canonical(value)
-        self.__memory__.__store__(canonical)             
+        self.__memory__.__store__(canonical)
         self.__cache__ = canonical
 
 
 # In[5]:
 
 
-class Primitive_t(CType_t):    
-    """ Primitive_t es una clase abstracta para los elementos que almacenan un valor único, 
-        su memoria de contención __cache__ se almacena explícitamente (en __mirror__). 
+class Primitive_t(CType_t):
+    """ Primitive_t es una clase abstracta para los elementos que almacenan un valor único,
+        su memoria de contención __cache__ se almacena explícitamente (en __mirror__).
     """
     def __init__(self, **kwargs) :
         self.__mirror__ = b'\x00'*len(self)
@@ -478,18 +481,18 @@ class Primitive_t(CType_t):
 
     def __len__(self) :
         return (self.__BIT_LEN__+7)//8
-    
+
     def __get__(self, instance, cls) :
         return self.__read__()
-    
+
     @property
     def __cache__(self):
         return self.__mirror__
-    
+
     @__cache__.setter
     def __cache__(self, bin_value):
         self.__mirror__ = bin_value
-                        
+
 
 
 # In[6]:
@@ -497,42 +500,42 @@ class Primitive_t(CType_t):
 
 from functools import reduce
 
-class uint_t(Primitive_t) :    
+class uint_t(Primitive_t) :
     def to_canonical(self, custom_val):
-        # TO DO completar con ceros si es necesario 
+        # TO DO completar con ceros si es necesario
         try :
             return custom_val.to_bytes((self.__BIT_LEN__ + 7)//8, 'little')
         except :
             return int(custom_val).to_bytes((self.__BIT_LEN__ + 7)//8, 'little')
-        
+
     def to_custom(self, canonical_val):
         return reduce(lambda a,b : a*256+b, reversed(self.__mirror__))
 
     def __str__(self) :
         return '{0:d}[0x{1:s}]'.format(self.to_custom(self.__mirror__), self.__mirror__.hex())
-    
-class int_t(uint_t) : 
+
+class int_t(uint_t) :
     def to_canonical(self, custom_val):
         if custom_val < 0 :
             custom_val += 2**(self.__BIT_LEN__)
-            
+
         return super().to_canonical(custom_val)
 
     def to_custom(self, canonical_val) :
-        custom = super().to_custom(canonical_val) 
+        custom = super().to_custom(canonical_val)
         if custom >= 2**(self.__BIT_LEN__ - 1) :
           custom -= 2**(self.__BIT_LEN__)
         return custom
-    
+
 class uint8_t(uint_t):
     __BIT_LEN__ = 8
-    
+
 class uint16_t(uint_t):
     __BIT_LEN__ = 16
-       
+
 class uint24_t(uint_t):
     __BIT_LEN__ = 32
-    
+
 class uint32_t(uint_t):
     __BIT_LEN__ = 32
 
@@ -541,48 +544,48 @@ class uint35_t(uint_t):
 
 class uint40_t(uint_t):
     __BIT_LEN__ = 40
-    
+
 class int8_t(int_t):
     __BIT_LEN__ = 8
-    
+
 class int16_t(int_t):
     __BIT_LEN__ = 16
-       
+
 class int24_t(int_t):
     __BIT_LEN__ = 32
-    
+
 class int32_t(int_t):
     __BIT_LEN__ = 32
 
 class int35_t(int_t):
     __BIT_LEN__ = 35
-    
+
 class int40_t(int_t):
     __BIT_LEN__ = 50
-    
-    
+
+
 class float24_t(Primitive_t):
     import struct
     __BIT_LEN__ = 24
-    
+
     def to_canonical(self, custom_val):
         return struct.pack('<f', custom_val)[1:]
-    
+
     def to_custom(self, canonical_val):
         return struct.unpack('<f', b'\x00' + canonical_val)[0]
-    
+
 
 
 # In[7]:
 
 
 class Pointer_t( Primitive_t, PointerMemory):
-    """ Pointer_t es la clase base de la que se derivan los elementos que sirven como punteros, 
+    """ Pointer_t es la clase base de la que se derivan los elementos que sirven como punteros,
         estas últimas son en si clases adhoc, provistas por el método factoría PointerTo.
-    
-        En python no existen el operador '->' de referencia indirecta, por lo que se continua 
+
+        En python no existen el operador '->' de referencia indirecta, por lo que se continua
         utilizando el operdor 'dot' (punto). El efecto colateral es que el acceso al valor del
-        puntero debe obtenerse con métodos indirectos. SetTargetAdr y GetTargetAdr, 
+        puntero debe obtenerse con métodos indirectos. SetTargetAdr y GetTargetAdr,
     """
     __BIT_LEN__ = 16
 
@@ -592,35 +595,35 @@ class Pointer_t( Primitive_t, PointerMemory):
         cls_dict = dict(vars(cls))
         kwargs['cls_dict'] = cls_dict
         self = super().__new__(cls, **kwargs)
-        
+
         target_memory = cls.__memory_class__(self, memory.__port__, volatil = memory.__volatil__)
         target_inst = cls.__target__(memory = target_memory)
         #cls.__target__ = target_inst
         self.__class__.__target__ = target_inst
-        
+
         Primitive_t.__init__(self, memory=memory)
         PointerMemory.__init__(self, memory.__adr__, memory.__port__, memory.__volatil__)
         return self
-    
-            
-    def __get__(self, instance, cls) :   
+
+
+    def __get__(self, instance, cls) :
         if issubclass(self.__target__.__class__, Primitive_t) :
             return self.__target__.__read__()
         return self.__target__
 
-    def __set__(self, instance, value) :     
+    def __set__(self, instance, value) :
         return self.__target__.__write__(value)
 
     def to_canonical(self, custom_val):
         return bytes([int(custom_val % 256), int(custom_val//256)])
-        
+
     def to_custom(self, canonical_val):
         return canonical_val[0] + 256*canonical_val[1]
 
 
 
 def PointerTo(target_t, memory_class):
-    cls = type('PointerTo<{:s}>'.format(target_t.__name__), (Pointer_t,), {'__target__' : target_t, 
+    cls = type('PointerTo<{:s}>'.format(target_t.__name__), (Pointer_t,), {'__target__' : target_t,
                                                                            '__memory_class__' : memory_class})
     return cls
 
@@ -633,10 +636,10 @@ class String_t(Primitive_t) :
         canonical = custom_val if isinstance(custom_val, (bytearray, bytes)) else custom_val.encode()
         canonical = canonical[:self.__BIT_LEN__ // 8] + b'\x00'*(self.__BIT_LEN__ // 8 - len(canonical))
         return canonical
-    
+
     def to_custom(self, canonical_val):
         return canonical_val.decode()
-    
+
 def CharArray_t(length):
     return type('String[{:d}]_t'.format(length), (String_t,) , {'__BIT_LEN__' : length*8})
 
@@ -647,71 +650,75 @@ def CharArray_t(length):
 def name_fix(name):
     return name.replace('<', '_').replace('>', '').replace('[', '_').replace(']', '').replace('__', '')
 
-class typedef(CType_t):          
+class typedef(CType_t):
     def __new__(cls, **kwargs) :
         memory = kwargs.get('memory', no_memory)
-        
+
         field_offset, fields, cls_dict = 0, [], dict(vars(cls))
         for key, val in cls_dict.items() :
             if isinstance(val, (type,)) and issubclass(val, CType_t) :
                 cls_dict[key] = val(memory = memory + field_offset)
                 field_offset += len(cls_dict[key])
-                
+
         kwargs['cls_dict'] = cls_dict
         return super().__new__(cls, **kwargs)
-        
+
     def __init__(self, **kwargs):
         self.__fields__ = {name: typ  for name, typ in vars(self.__class__).items() if isinstance(typ, (CType_t,)) }
-        
+
         tuple_name = name_fix(self.__class__.__name__)
         field_names = [name_fix(f_n) for f_n in self.__fields__.keys()]
         self.custom_format = namedtuple(tuple_name, field_names)
-        
+
         super().__init__(**kwargs)
-                    
+
     def __len__(self) :
         return sum(len(f) for f in self.__fields__.values())
-    
+
     @property
     def __cache__(self):
         cache = bytearray()
         for field in self.__fields__.values():
             cache += field.__cache__
         return bytes(cache)
-    
+
     @__cache__.setter
     def __cache__(self, bin_value):
         bin_value = bytearray(bin_value)
         for field in self.__fields__.values() :
             field.__cache__ = bin_value[:len(field)]
-            bin_value[:len(field)] = b''        
-    
+            bin_value[:len(field)] = b''
+
     def to_canonical(self, custom_val):
         return b''.join([f.to_canonical(v) for f, v in zip(self.__fields__.values(), custom_val)])
-        
+
     def to_custom(self, canonical_val) :
         canonical_val = bytearray(canonical_val)
         custom = []
         for e in self.__fields__.values() :
           custom.append(e.to_custom(canonical_val[:len(e)]))
           canonical_val = canonical_val[len(e):]
-            
+
         return tuple(custom)
 
     def __read__(self) :
-        return self.custom_format(*super().__read__())
-        
+        fields = []
+        for f in self.__fields__.values() :
+            fields.append(f.__read__())
+        return self.custom_format(*fields)
+
     def __str__(self) :
         return str(self.__read__())
-                          
-   
+
 def read(var) :
     return var.__read__()
 
-                          
+
 def CStruct(dict_fields, tag=None) :
-    return type('_anon_structure' , typedef, dict_fields)                              
-                          
+    if tag is None :
+        tag = '_anon_structure'
+    return type(tag, (typedef,), dict_fields)
+
 
 
 # In[10]:
@@ -723,18 +730,18 @@ class Array_t(typedef):
 
     def __setitem__(self, idx, value) :
         setattr(self, '__elem[{:d}]__'.format(idx), value)
-        
+
     def __read__(self) :
         tuple_name = self.__class__.__name__.replace('<', '_').replace('>', '_').replace('[', '_').replace(']', '_')
         names = list('e{:d}'.format(n) for n, _ in enumerate(self.__fields__.values()))
         values = (e.__read__() for e in self.__fields__.values())
         return namedtuple(tuple_name, names)(*values)
-    
-    
+
+
 def ArrayOf(pattern_t, length):
     cls = type('ArrayOf_{:s}'.format(pattern_t.__name__), (Array_t,) ,
                dict(('__elem[{:d}]__'.format(n), pattern_t) for n in range(length)))
     return cls
-   
-                          
+
+
 
