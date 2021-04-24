@@ -271,12 +271,13 @@ class FacadeConfig:
     """ Describe la asignación del espacio de 2**16 bytes para cada tipo
         de memoria.
     """
-    FLASH_SPACE  = MemoryConfig(0x0000, 0x0000, 0x1DFF)
-    RAM_SPACE    = MemoryConfig(0xE000, 0x0000, 0x0FFF)
-    EEPROM_SPACE = MemoryConfig(0xF000, 0x0000, 0x0FFF)
-    
+    FLASH_SPACE      = MemoryConfig(0x0000, 0x0000, 0x1DFF)
+    LINEAR_RAM_SPACE = MemoryConfig(0x0000, 0x0000, 0x7FFF)
+    RAM_SPACE        = MemoryConfig(0xE000, 0x0000, 0x0FFF)
+    EEPROM_SPACE     = MemoryConfig(0xF000, 0x0000, 0x0FFF)
+
     EMULATED_EEPROM_ADDRESS = 0x1F00
-   
+
 
 
 # In[2]:
@@ -287,34 +288,42 @@ class XC8:
     """
     @classmethod
     def to_adr(cls, ptr_val, memory_class):
-        if memory_class == RAM_Memory:
+        if memory_class == Linear_RAM_Memory:
+            if ptr_val < 0x8000:
+                if ptr_val <= FacadeConfig.LINEAR_RAM_SPACE.final :
+                    return ptr_val
+                raise ValueError('Valor del puntero (0x{:04X}) fuera de rango ([0x{:04X} - 0x{:04X}]).'.format(ptr_val, FacadeConfig.RAM_SPACE.start, FacadeConfig.RAM_SPACE.final))
+
+            raise ValueError('El valor del puntero (0x{:04X}) no apunta al tipo de memoria requerido ({:s}).'.format(ptr_val, memory_class.__name__))
+
+        elif memory_class == RAM_Memory:
             if ptr_val < 0x8000:
                 if ptr_val <= FacadeConfig.RAM_SPACE.final :
                     return ptr_val
                 raise ValueError('Valor del puntero (0x{:04X}) fuera de rango ([0x{:04X} - 0x{:04X}]).'.format(ptr_val, FacadeConfig.RAM_SPACE.start, FacadeConfig.RAM_SPACE.final))
-               
+
             raise ValueError('El valor del puntero (0x{:04X}) no apunta al tipo de memoria requerido ({:s}).'.format(ptr_val, memory_class.__name__))
-             
+
         elif memory_class == FLASH_Memory :
             if ptr_val >= 0x8000:
                 if (ptr_val - 0x8000) <= FacadeConfig.FLASH_SPACE.final :
                     return ptr_val - 0x8000
                 raise ValueError('Valor del puntero (0x{:04X}) fuera de rango ([0x{:04X} - 0x{:04X}]).'.format(ptr_val, FacadeConfig.FLASH_SPACE.start, FacadeConfig.FLASH_SPACE.final))
-                
+
             raise ValueError('El valor del puntero (0x{:04X}) no apunta al tipo de memoria requerido ({:s}).'.format(ptr_val, memory_class.__name__))
-             
+
         elif memory_class == EEPROM_Memory :
             if ptr_val >= 0x8000:
                 if (ptr_val >= (0x8000 + FacadeConfig.EMULATED_EEPROM_ADDRESS)) and (ptr_val <= (0x8000 + FacadeConfig.EMULATED_EEPROM_ADDRESS + FacadeConfig.EEPROM_SPACE.final)) :
                     return ptr_val - 0x8000 - FacadeConfig.EMULATED_EEPROM_ADDRESS
                 raise ValueError('Valor del puntero (0x{:04X}) fuera de rango ([0x{:04X} - 0x{:04X}]).'.format(ptr_val, FacadeConfig.EEPROM_SPACE.start, FacadeConfig.EEPROM_SPACE.final))
-                
-            raise ValueError('El valor del puntero (0x{:04X}) no apunta al tipo de memoria requerido ({:s}).'.format(ptr_val, memory_class.__name__))
-            
-        raise ValueError('Clase de Memoria desconocida.')     
-    
 
-C_compiler = XC8    
+            raise ValueError('El valor del puntero (0x{:04X}) no apunta al tipo de memoria requerido ({:s}).'.format(ptr_val, memory_class.__name__))
+
+        raise ValueError('Clase de Memoria desconocida.')
+
+
+C_compiler = XC8
 
 
 # In[3]:
