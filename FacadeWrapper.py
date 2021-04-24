@@ -80,17 +80,17 @@ class FacadeWrapper :
       """
       Transmite 'data'. Si no puede hacerlo dentro del límite de tiempo
       establecido (writeTimeout) aborta la operación por medio de una
-      excepción (del tipo FacadePortError).
+      excepción (del tipo FacadeWrapperError).
       """
       try :
          self.log.debug('Trasmitiendo : 0x%s' %data.hex().upper())
          for d in data :
           self.__comm.write(bytes([d]))
-          sleep(2/self.__comm.baudrate)
+          #sleep(2/self.__comm.baudrate)
          if self.throughput_limit :
             sleep(0.05)
 
-      except FacadePortError as e:
+      except FacadeWrapperError as e:
          raise FacadeWrapperError('Fallo de Transmisión (timeout).', e, self)
 
 
@@ -120,7 +120,7 @@ class FacadeWrapper :
       try :
          self.log.debug('Recibiendo la respuesta (ACK/NACK) ...')
          ans = self.__rcve()
-      except FacadePortError as e :
+      except FacadeWrapperError as e :
          raise FacadeWrapperError('El dispositivo no envió '
                                'la respuesta de aceptación/rechazo.', None, self)
 
@@ -222,9 +222,7 @@ class FacadeWrapper :
             return ans
 
          except FacadeWrapperError as e :
-            print("error ;", e)
-            raise FacadeWrapperError('No se pudo obtener el contenido de ' \
-                               '0x%04X / 0x%02X bytes.' %(adr, size), e, self)
+            raise FacadeWrapperError('No se pudo obtener el contenido de 0x%04X / 0x%02X bytes.'%(adr, size), e, self)
 
 
     def setData(self, adr, data, mode = 'byte') :
@@ -299,12 +297,18 @@ class FacadeWrapper :
 
     def open(self):
       """
-      Abre el puerto serie, si no puede realizarse levanta la excepción FacadePortError.
+      Abre el puerto serie, si no puede realizarse levanta la excepción FacadeWrapperError.
       """
       self.log.debug('Abriendo el puerto serie : %s', str(self.__comm))
       self.__comm.open()
       self.log.debug('El puerto %s esta preparado para la comunicación.' \
                      % self.__comm.port)
+        
+    def isOpen(self):
+        """
+        Devuelve el estado del puerto.
+        """
+        return self.__comm.isOpen()
 
     def close(self) :
       """
