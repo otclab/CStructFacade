@@ -442,14 +442,15 @@ class CType_t(metaclass=CType_Meta):
     def __init__(self, **kwargs) :
         memory = kwargs.get('memory', no_memory)
         self.__memory__ = memory
+        self.port = self.__memory__.__port__
         self.__length__ = len(self)
 
     def __get__(self, instance, cls) :
         return self
-        
+
     def __set__(self, instance, value) :
         self.__write__(value)
-        
+
     def __read__(self) :
         self.__cache__ = self.__memory__.__retrieve__(self.__length__)
         return self.to_custom(self.__cache__)
