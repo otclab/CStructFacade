@@ -337,6 +337,7 @@ class FacadeMemory:
         self.__port__ = port
         self.__volatil__ = volatil
         self.__updated__ = False
+        self.__cache__  = None
         self.__offset__ = 0
         self.__compiler__ = C_compiler
 
@@ -355,11 +356,13 @@ class FacadeMemory:
 
     def __retrieve__(self, length):
         if not self.__updated__ :
-            return self.__port__.getData(self.__address__ + self.PROTOCOL_OFFSET.offset, length)
+            self.__cache__ = self.__port__.getData(self.__address__ + self.PROTOCOL_OFFSET.offset, length)
+        return self.__cache__
 
     def __store__(self, data):
         if not self.__port__.setData(self.__address__ + self.PROTOCOL_OFFSET.offset, data) :
             raise FacadeWrapperError("El dispositivo no acepto el cambio.")
+        self.__cache__ = data
         self.__updated__ = not self.__volatil__
 
 
@@ -452,21 +455,21 @@ class CType_t(metaclass=CType_Meta):
         self.__write__(value)
 
     def __read__(self) :
-        self.__cache__ = self.__memory__.__retrieve__(self.__length__)
-        return self.to_custom(self.__cache__)
+        return self.to_custom(self.__memory__.__retrieve__(self.__length__))
 
     def __write__(self, value):
-        if isinstance(value, (CType_t,)) :
-            value = value.__read__()
+        self.__memory__.__store__(self.to_canonical(value))
 
-        field_cnt = 1 if isinstance(self, (Primitive_t,)) else len(self.__fields__)
-        value_cnt = len(value) if isinstance(value, (list, tuple)) else 1
-        if field_cnt != value_cnt :
-            raise ValueError('El número de elementos es diferente.')
+    # __cache__ se implementa para leer o acrualizar el valor de resguardo
+    # sin disparar la lectura o ecritura remota.
+    @property
+    def __cache__(self):
+        return self.__memory__.__cache__
 
-        canonical = self.to_canonical(value)
-        self.__memory__.__store__(canonical)
-        self.__cache__ = canonical
+    @__cache__.setter
+    def __cache__(self, bin_value):
+        self.__memory__.__cache__ = bin_value
+
 
 
 # In[5]:
@@ -477,22 +480,24 @@ class Primitive_t(CType_t):
         su memoria de contención __cache__ se almacena explícitamente (en __mirror__).
     """
     def __init__(self, **kwargs) :
-        self.__mirror__ = b'\x00'*len(self)
+        #self.__mirror__ = b'\x00'*len(self)
         super().__init__(**kwargs)
 
     def __len__(self) :
         return (self.__BIT_LEN__+7)//8
 
     def __get__(self, instance, cls) :
+        # Las variables primitivas solo tienen un solo valor por lo que
+        # se interpretan explicitamente cmo un valor :
         return self.__read__()
 
-    @property
-    def __cache__(self):
-        return self.__mirror__
-
-    @__cache__.setter
-    def __cache__(self, bin_value):
-        self.__mirror__ = bin_value
+#    @property
+#    def __cache__(self):
+#        return self.__mirror__
+#
+#    @__cache__.setter
+#    def __cache__(self, bin_value):
+#        self.__mirror__ = bin_value
 
 
 
@@ -510,10 +515,10 @@ class uint_t(Primitive_t) :
             return int(custom_val).to_bytes((self.__BIT_LEN__ + 7)//8, 'little')
 
     def to_custom(self, canonical_val):
-        return reduce(lambda a,b : a*256+b, reversed(self.__mirror__))
+        return reduce(lambda a,b : a*256+b, reversed(self.__cache__))
 
     def __str__(self) :
-        return '{0:d}[0x{1:s}]'.format(self.to_custom(self.__mirror__), self.__mirror__.hex())
+        return '{0:d}[0x{1:s}]'.format(self.to_custom(self.__cache__), self.__cache__.hex())
 
 class int_t(uint_t) :
     def to_canonical(self, custom_val):
@@ -639,6 +644,7 @@ class String_t(Primitive_t) :
         return canonical
 
     def to_custom(self, canonical_val):
+        # El valor (canóncico) se interpreta como una cadena de caracteres :
         return canonical_val.decode()
 
 def CharArray_t(length):
@@ -707,6 +713,27 @@ class typedef(CType_t):
         for f in self.__fields__.values() :
             fields.append(f.__read__())
         return self.custom_format(*fields)
+
+    def __write__(self, value):
+        # Se permite que value sea un descendiente de CType_t :
+        if isinstance(value, (CType_t,)) :
+            # pero debe convertirse a una estructura de valores ...
+            value = value.__read__()
+
+        # Se verifica que la estructura de valores sea compatible :
+        # TODO la verificación solo afecta el primer nivel de campos !
+        field_cnt = 1 if isinstance(self, (Primitive_t,)) else len(self.__fields__)
+        value_cnt = len(value) if isinstance(value, (list, tuple)) else 1
+        if field_cnt != value_cnt :
+            raise ValueError('El número de elementos es diferente.')
+
+        # Se convierte a la secuencia de bytes respectiva ...
+        canonical = self.to_canonical(value)
+        # Se alamacena como un todo ...
+        super().__write__(canonical)
+        # lo que implica que el resguardo de cada campo deben actualizarse
+        # independientemente :
+        self.__cache__ = canonical
 
     def __str__(self) :
         return str(self.__read__())
